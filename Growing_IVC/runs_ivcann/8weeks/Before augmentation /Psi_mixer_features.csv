@@ -1,0 +1,17 @@
+feature,weight
+I1_lin,8.44835595e-05
+I1_exp,4.52237934e-01
+I1_quad_lin,2.39116816e-05
+I1_quad_exp,2.90794879e-01
+I2_lin,1.47433519e-01
+I2_exp,-0.00000000e+00
+I2_quad_lin,8.47162453e-19
+I2_quad_exp,-0.00000000e+00
+I4theta_lin,6.55916119e+00
+I4theta_exp,3.84288335e+00
+I4theta_quad_lin,-0.00000000e+00
+I4theta_quad_exp,2.54260445e+00
+I4z_lin,-0.00000000e+00
+I4z_exp,3.86301327e+00
+I4z_quad_lin,3.18911974e-04
+I4z_quad_exp,3.14359736e+00
