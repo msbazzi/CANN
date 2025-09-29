@@ -3,8 +3,8 @@ import numpy as np
 
 
 def load_data():
-    inputPath1 = r'Data/muscle_mag_vals.xls'
-    inputPath2 = r'Data/muscle_rate_vals.xls'
+    inputPath1 = r'muscle_mag_vals.xls'
+    inputPath2 = r'muscle_rate_vals.xls'
 
     inputData = np.zeros((5, 50, 2))
     outputData = np.zeros((5, 50, 1))
@@ -64,8 +64,8 @@ def load_data():
 
 
 def load_resampled_data():
-    inputPath1 = r'Data/muscle_mag_vals.xls'
-    inputPath2 = r'Data/muscle_rate_vals.xls'
+    inputPath1 = r'muscle_mag_vals.xls'
+    inputPath2 = r'muscle_rate_vals.xls'
 
     inputData = np.zeros((5, 18, 2))
     outputData = np.zeros((5, 18, 1))
@@ -124,7 +124,7 @@ def load_resampled_data():
 
 
 def load_axon_data():
-    inputPath = r'Data/axonData.xls'
+    inputPath = r'axonData.xls'
 
     inputData = np.zeros((2, 27, 2))
     outputData = np.zeros((2, 27, 1))
@@ -172,7 +172,7 @@ def load_axon_data():
 
 
 def load_smooth_axon_data():
-    inputPath = r'Data/axonData.xls'
+    inputPath = r'axonData.xls'
 
     inputData = np.zeros((2, 29, 2))
     outputData = np.zeros((2, 29, 1))
@@ -218,7 +218,7 @@ def load_smooth_axon_data():
     return inputTrain, outputTrain, inputTest, outputTest, inputAll, outputAll, trainingWeights
 
 def load_PC12_axon_data():
-    inputPath = r'Data/axonData.xls'
+    inputPath = r'axonData.xls'
 
     inputData = np.zeros((1, 31, 2))
     outputData = np.zeros((1, 31, 1))

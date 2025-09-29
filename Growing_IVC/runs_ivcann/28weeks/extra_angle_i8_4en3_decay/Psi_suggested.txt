@@ -1,0 +1,61 @@
+Suggested strain-energy density Ψ (model structure)
+====================================================
+
+Define shifted invariants:
+  x1 = I1 - shift_I1
+  x2 = I2 - shift_I2
+  xθ = I4θ - shift_I4
+  xz = I4z - shift_I4
+  x_a = I4±φ        - shift_I4
+  x_b = I4±(90°−φ)  - shift_I4
+  x8 = I8 - shift_I4
+
+Per-invariant feature maps used by the network:
+  lin(x)       = w_lin * x
+  exp(x)       = exp(w_exp * x) - 1
+  quad_lin(x)  = w_quad_lin * x^2
+  quad_exp(x)  = exp(w_quad_exp * x^2) - 1
+
+The network computes
+  Ψ(I1, I2, I4θ, I4z, I4±φ, I4±(90°−φ)) =
+      Σ_over_invariants  Σ_over_features  [ m(feature) * feature_value ]
+where m(feature) is the mixer weight for that feature and each feature_value
+is one of the four maps above applied to the corresponding shifted invariant.
+
+Expanded sum with numeric coefficients (one term per feature):
+  [I1   • lin      ]  +7.072746e-01 * (-2.331641e-01 * x1)
+  [I1   • exp      ]  +4.153283e-01 * (exp(+1.040595e-02 * x1) - 1)
+  [I1   • quad_lin ]  +5.813323e-01 * (-2.580684e-01 * x1^2)
+  [I1   • quad_exp ]  +3.181072e-01 * (exp(-0.000000e+00 * x1^2) - 1)
+  [I2   • lin      ]  +2.925166e-01 * (+9.586389e-02 * x2)
+  [I2   • exp      ]  +2.479667e-01 * (exp(+1.053431e-01 * x2) - 1)
+  [I2   • quad_lin ]  +1.744015e-01 * (+4.215584e-02 * x2^2)
+  [I2   • quad_exp ]  +7.815063e-02 * (exp(+3.699598e-01 * x2^2) - 1)
+  [I4θ  • lin      ]  -0.000000e+00 * (+0.000000e+00 * xθ)
+  [I4θ  • exp      ]  +3.941520e-01 * (exp(+7.522669e-02 * xθ) - 1)
+  [I4θ  • quad_lin ]  +1.362134e-01 * (+0.000000e+00 * xθ^2)
+  [I4θ  • quad_exp ]  -0.000000e+00 * (exp(+5.338779e-02 * xθ^2) - 1)
+  [I4z  • lin      ]  +2.992533e-01 * (+0.000000e+00 * xz)
+  [I4z  • exp      ]  -0.000000e+00 * (exp(+1.808419e-02 * xz) - 1)
+  [I4z  • quad_lin ]  +1.828846e-02 * (+0.000000e+00 * xz^2)
+  [I4z  • quad_exp ]  +2.920362e-01 * (exp(+9.584454e-02 * xz^2) - 1)
+  [I4a  • lin      ]  +8.865622e-01 * (+7.839229e-01 * x_a)
+  [I4a  • exp      ]  +1.059494e+00 * (exp(+7.350878e-01 * x_a) - 1)
+  [I4a  • quad_lin ]  -0.000000e+00 * (+6.908804e-22 * x_a^2)
+  [I4a  • quad_exp ]  +7.042170e-01 * (exp(+7.243057e-01 * x_a^2) - 1)
+  [I4b  • lin      ]  -0.000000e+00 * (+6.917301e-22 * x_b)
+  [I4b  • exp      ]  +8.624876e-01 * (exp(+7.711168e-01 * x_b) - 1)
+  [I4b  • quad_lin ]  -0.000000e+00 * (+6.908804e-22 * x_b^2)
+  [I4b  • quad_exp ]  +8.434573e-01 * (exp(+7.210853e-01 * x_b^2) - 1)
+  [I8   • lin      ]  +6.443254e-01 * (-4.378767e-01 * I8)
+  [I8   • exp      ]  +5.009317e-01 * (exp(+7.972324e-02 * I8) - 1)
+  [I8   • quad_lin ]  +6.443253e-01 * (-4.378767e-01 * I8^2)
+  [I8   • quad_exp ]  +4.530203e-01 * (exp(+4.174014e-01 * I8^2) - 1)
+
+Learned fiber angle:
+  φ ≈ 45.000 degrees
+
+Notes:
+• The overall form is convex-combinational through nonnegative mixer weights (if constrained),
+  blending linear and exponential feature responses of each invariant.
+• Any physical scaling/units are inherited from the training data.

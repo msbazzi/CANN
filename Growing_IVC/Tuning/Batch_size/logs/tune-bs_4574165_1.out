@@ -1,0 +1,35 @@
+Found ages: ['28weeks']
+Processing age: 28weeks (/scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks)
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_fl140.csv for Dodge (fl, lvl=140) → N=171
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_pd100.csv for Dodge (pd, lvl=100) → N=343
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_pd105.csv for Dodge (pd, lvl=105) → N=504
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_fl100.csv for Dodge (fl, lvl=100) → N=383
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_pd95.csv for Dodge (pd, lvl=95) → N=473
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_fl10.csv for Dodge (fl, lvl=10) → N=398
+[INFO] Parsed /scratch/users/msbazzi/CANN/Batch_size/CANN/Growing_IVC/data/28weeks/Dodge_fl60.csv for Dodge (fl, lvl=60) → N=375
+[AUG] After augmentation: Nθ=900  Nz=1071
+[STRATEGY] Using DefaultStrategy (GPUs: 0)
+==> 28weeks: joint training (Pd+Fl): Nθ=900  Nz=1071
+[joint] epoch 1  loss=668.57096  (θ=205.75973, z=457.20066)  lr=2.000e-03
+[joint] epoch 2  loss=404.06728  (θ=120.99708, z=280.48883)  lr=2.000e-03
+[joint] epoch 3  loss=159.30827  (θ=63.63588, z=90.58325)  lr=2.000e-03
+[joint] epoch 4  loss=84.79210  (θ=46.01420, z=33.85083)  lr=2.000e-03
+[joint] epoch 5  loss=57.55665  (θ=26.93293, z=28.06531)  lr=2.000e-03
+[joint] epoch 20  loss=42.41889  (θ=20.27305, z=20.20750)  lr=2.000e-03
+[joint] epoch 40  loss=39.55794  (θ=20.61946, z=16.83762)  lr=2.000e-03
+[joint] epoch 60  loss=38.72897  (θ=20.39425, z=16.25608)  lr=2.000e-03
+[joint] epoch 80  loss=38.54571  (θ=20.29248, z=16.18668)  lr=2.000e-03
+[joint] epoch 100  loss=38.36900  (θ=20.12937, z=16.19821)  lr=2.000e-03
+[joint] epoch 120  loss=38.25422  (θ=20.06999, z=16.15065)  lr=2.000e-03
+[joint] epoch 140  loss=38.15398  (θ=20.10190, z=16.00738)  lr=2.000e-03
+[joint] epoch 160  loss=38.05996  (θ=20.05958, z=15.95977)  lr=2.000e-03
+[joint] epoch 180  loss=38.01436  (θ=20.04447, z=15.92925)  lr=2.000e-03
+[joint] epoch 200  loss=37.95698  (θ=19.96604, z=15.96235)  lr=2.000e-03
+[joint] epoch 220  loss=37.89959  (θ=19.67847, z=16.24646)  lr=2.000e-03
+[joint] early stop at epoch 238 (best=37.88010)  lr=2.000e-03
+[WEIGHTS] Saved readable weights to:
+  - /scratch/users/msbazzi/CANN/Batch_size/out_bs/bs_32/28weeks/Psi_weights.txt
+  - /scratch/users/msbazzi/CANN/Batch_size/out_bs/bs_32/28weeks/Psi_mixer_features.csv
+[FORM]    Saved suggested Ψ form to:
+  - /scratch/users/msbazzi/CANN/Batch_size/out_bs/bs_32/28weeks/Psi_suggested.txt
+[DONE] Saved to /scratch/users/msbazzi/CANN/Batch_size/out_bs/bs_32/28weeks

@@ -1,0 +1,46 @@
+#!/bin/bash
+#SBATCH --job-name=tune-lr
+#SBATCH --partition=amarsden
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --time=10:00:00
+#SBATCH --array=0-5
+#SBATCH --output=logs/tune-lr_%A_%a.out
+#SBATCH --error=logs/tune-lr_%A_%a.err
+set -euo pipefail
+mkdir -p logs
+
+module --force purge
+module load devel math
+module load py-tensorflow/2.10.0_py39
+
+export PYTHONNOUSERSITE=0
+export TF_CPP_MIN_LOG_LEVEL=2
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export TF_NUM_INTRAOP_THREADS=${SLURM_CPUS_PER_TASK}
+export TF_NUM_INTEROP_THREADS=2
+export CLUSTER_RUN=1
+
+REPO_DIR="${SLURM_SUBMIT_DIR}/CANN"
+SCRIPT="${REPO_DIR}/Growing_IVC/IVCCANN_discovered_augmentation_fiber_direction.py"
+DATA_ROOT="${REPO_DIR}/Growing_IVC/data"
+OUT_ROOT="${SLURM_SUBMIT_DIR}/out_lr"
+mkdir -p "${OUT_ROOT}"
+
+LR_LIST=(1e-4 3e-4 1e-3 2e-3 3e-3 5e-3)
+LR="${LR_LIST[$SLURM_ARRAY_TASK_ID]}"
+SEED=$((1000 + SLURM_ARRAY_TASK_ID))
+OUT_DIR="${OUT_ROOT}/lr_${LR}"
+
+srun -n 1 -c ${SLURM_CPUS_PER_TASK} python3 "${SCRIPT}" \
+  --data_root "${DATA_ROOT}" \
+  --out_root  "${OUT_DIR}" \
+  --lr "${LR}" \
+  --pen 0.01 \
+  --batch 64 \
+  --reg L2 \
+  --seed "${SEED}" \
+  --fast
+

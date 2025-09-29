@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-# IVCANN_discovered_augment.py
-# Discover a strain-energy density function (Ψ) for juvenile lamb IVC
+# IVCANN_discovered_C_based.py
+# Discover a strain-energy density function Ψ(C) for juvenile lamb IVC
 # Folder layout:
 #   data/<age>/<specimen>_(pd|fl)<level>.csv
-# CSV columns expected:
+#   e.g., data/3weeks/Lucid_fl10.csv, data/8weeks/Scout_pd95.csv
+#
+# CSV columns expected (from your MATLAB exporter):
 #   lambda_theta, sigma_theta_kPa, lambda_z, sigma_z_kPa
 
 import os, re, glob, json
@@ -19,16 +21,14 @@ DATA_ROOT = "data"            # root folder with age subfolders
 OUT_ROOT  = "runs_ivcann"     # outputs per age go here
 EPOCHS_TH = 4000              # epochs for θ (Pd) fit
 EPOCHS_Z  = 4000              # epochs for z (Fl) fit
-BATCH     = 64                # batch size
-LR        = 1e-3              # learning rate (safer for aug)
+BATCH     = 32                # batch size
+LR        = 1e-2              # learning rate
 REG_KIND  = "L2"              # "L1" or "L2"
 REG_PEN   = 0.0               # regularization strength
-SEED      = 42                # reproducibility (ish)
-
-# Physics/num stability
-LMIN = 1e-3      # min stretch
-LMAX = 5.0       # max stretch (very conservative)
-EXP_CLIP = 15.0  # cap exp pre-activations to avoid overflow
+SEED      = 42                # reproducibility
+LMIN      = 1e-3              # min stretch
+LMAX      = 5.0               # max stretch (very conservative)
+EXP_CLIP  = 15.0              # cap exp pre-activations to avoid overflow
 
 # ==== FAST DEV TOGGLES (local quick tests) ===================================
 FAST_DEV = True               # set False for full training
@@ -37,18 +37,17 @@ MAX_POINTS_PER_AGE  = 6000    # cap total points per age (after stacking)
 FAST_EPOCHS_TH      = 400     # override EPOCHS_TH when FAST_DEV
 FAST_EPOCHS_Z       = 400     # override EPOCHS_Z  when FAST_DEV
 
-# --- Augmentation (offline, before building tf.data) ---
-AUG_ON         = True     # turn augmentation on/off
-AUG_DUP        = 5        # how many jittered duplicates to add (0 = none)
-AUG_MIXUP      = True     # add a mixup copy of the dataset
-AUG_ALPHA      = 0.2      # beta(alpha, alpha) for mixup
-AUG_JITTER_STD = 0.01     # gaussian jitter on (lambda_theta, lambda_z)
-AUG_LMIN       = 0.6      # clamp augmented lambdas to this min
-AUG_LMAX       = 2.0      # clamp augmented lambdas to this max
-# =============================================================================
+# --- (placeholders for future augmentation hooks; currently unused) ---
+AUG_ON        = False
+AUG_DUP       = 2
+AUG_MIXUP     = True
+AUG_ALPHA     = 0.2
+AUG_JITTER_STD= 0.01
+AUG_LMIN      = 0.6
+AUG_LMAX      = 2.0
 
 tf.random.set_seed(SEED)
-USE_XLA = os.environ.get("USE_XLA", "0") == "1"   # default: OFF
+USE_XLA = os.environ.get("USE_XLA", "0") == "1"
 if USE_XLA:
     try:
         tf.config.optimizer.set_jit(True)
@@ -75,22 +74,29 @@ def parse_csvs_for_age(age_dir):
         'fl': [ { specimen, level, lam_th, lam_z, sig_z,  path }, ... ],
       }
     Accepts either "Specimen_pd105.csv" or "Specimen.pd105.csv".
+    Normalizes column names (strip + lower) to avoid KeyError.
     """
     pd_samples, fl_samples = [], []
     for csv in glob.glob(os.path.join(age_dir, "*.csv")):
         fname = os.path.basename(csv)
+
+        # accept underscore or dot separator before 'pd'/'fl'
         m = re.match(r"(?P<spec>.+)[_.](?P<kind>pd|fl)(?P<lvl>\d+)\.csv$", fname, flags=re.IGNORECASE)
         if not m:
             m = re.match(r"(?P<spec>.+)_(?P<kind>pd|fl)(?P<lvl>\d+)\.csv$", fname, flags=re.IGNORECASE)
         if not m:
             continue
 
-        spec = m.group("spec"); kind = m.group("kind").lower(); lvl = int(m.group("lvl"))
+        spec = m.group("spec")
+        kind = m.group("kind").lower()
+        lvl  = int(m.group("lvl"))
 
+        # --- read & normalize headers ---
         df = pd.read_csv(csv)
         df.columns = [c.strip().lower() for c in df.columns]
         cols = set(df.columns)
 
+        # required basics (lambda_theta, lambda_z always used)
         req = {"lambda_theta", "lambda_z"}
         missing = req - cols
         if missing:
@@ -101,6 +107,7 @@ def parse_csvs_for_age(age_dir):
         lam_z  = df["lambda_z"].astype(float).to_numpy()
 
         if kind == "pd":
+            # need sigma_theta_kpa only
             if "sigma_theta_kpa" not in cols:
                 print(f"[WARN] {csv}: missing 'sigma_theta_kpa'. Found: {sorted(cols)}")
                 continue
@@ -119,6 +126,7 @@ def parse_csvs_for_age(age_dir):
                     sig_th=sig_th_m, path=csv
                 ))
         else:
+            # kind == 'fl': need sigma_z_kpa only
             if "sigma_z_kpa" not in cols:
                 print(f"[WARN] {csv}: missing 'sigma_z_kpa'. Found: {sorted(cols)}")
                 continue
@@ -172,166 +180,111 @@ def build_dataset(age_blob):
     return X_th, y_th, X_z, y_z
 
 # -----------------------------------------------------------------------------
-# Augmentation helpers (offline, before tf.data)
-# -----------------------------------------------------------------------------
-def _augment_arrays(X, y,
-                    dup=AUG_DUP,
-                    jitter_std=AUG_JITTER_STD,
-                    mixup=AUG_MIXUP,
-                    alpha=AUG_ALPHA,
-                    lmin=AUG_LMIN,
-                    lmax=AUG_LMAX,
-                    seed=SEED):
-    if X.shape[0] == 0:
-        return X, y
-
-    rng = np.random.default_rng(seed)
-    X_out = [X.astype(np.float32)]
-    y_out = [y.astype(np.float32)]
-
-    # small Gaussian jitter on lambda's
-    for _ in range(max(0, int(dup))):
-        j = rng.normal(0.0, jitter_std, X.shape).astype(np.float32)
-        Xj = X.astype(np.float32) + j
-        Xj[:, 0] = np.clip(Xj[:, 0], lmin, lmax)
-        Xj[:, 1] = np.clip(Xj[:, 1], lmin, lmax)
-        X_out.append(Xj); y_out.append(y.astype(np.float32))
-
-    # mixup within the same modality
-    if mixup and X.shape[0] >= 2:
-        n = X.shape[0]
-        i1 = rng.integers(0, n, size=n)
-        i2 = rng.integers(0, n, size=n)
-        lam = rng.beta(alpha, alpha, size=n).astype(np.float32)
-        Xm = lam[:, None] * X[i1].astype(np.float32) + (1.0 - lam)[:, None] * X[i2].astype(np.float32)
-        ym = lam * y[i1].astype(np.float32) + (1.0 - lam) * y[i2].astype(np.float32)
-        Xm[:, 0] = np.clip(Xm[:, 0], lmin, lmax)
-        Xm[:, 1] = np.clip(Xm[:, 1], lmin, lmax)
-        X_out.append(Xm); y_out.append(ym)
-
-    X_aug = np.concatenate(X_out, axis=0).astype(np.float32)
-    y_aug = np.concatenate(y_out, axis=0).astype(np.float32)
-    return X_aug, y_aug
-
-def maybe_augment(X_th, y_th, X_z, y_z):
-    if not AUG_ON:
-        return X_th, y_th, X_z, y_z
-    if X_th.shape[0] > 0:
-        X_th, y_th = _augment_arrays(X_th, y_th)
-    if X_z.shape[0] > 0:
-        X_z,  y_z  = _augment_arrays(X_z,  y_z)
-    return X_th, y_th, X_z, y_z
-
-# -----------------------------------------------------------------------------
-# Physics: invariants and stresses
+# Physics: C = F^T F branches and stresses from dΨ/dC
 # -----------------------------------------------------------------------------
 @tf.function(reduce_retracing=True)
-def invariants_from_stretches(lam_th, lam_z):
+def C_from_stretches(lam_th, lam_z):
+    """Return principal components of C = diag(C_rr, C_tt, C_zz) and λr."""
     lam_th = tf.clip_by_value(lam_th, LMIN, LMAX)
     lam_z  = tf.clip_by_value(lam_z,  LMIN, LMAX)
-    lam_r = 1.0 / (lam_th * lam_z)
-    I1 = lam_th**2 + lam_z**2 + lam_r**2
-    I2 = lam_th**2 * lam_z**2 + lam_th**2 * lam_r**2 + lam_z**2 * lam_r**2
-    I4th = lam_th**2
-    I4z  = lam_z**2
-    return I1, I2, I4th, I4z
+    lam_r  = 1.0 / (lam_th * lam_z)          # incompressible J=1
+    C_rr = lam_r**2
+    C_tt = lam_th**2
+    C_zz = lam_z**2
+    return C_rr, C_tt, C_zz, lam_r
 
 @tf.function(reduce_retracing=True)
-def sigma_theta_from_derivs(lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4th):
-    lam_th = tf.clip_by_value(lam_th, LMIN, LMAX)
-    lam_z  = tf.clip_by_value(lam_z,  LMIN, LMAX)
-    lam_r = 1.0 / (lam_th * lam_z + 1e-8)
-    return 2.0 * (
-        dW_dI1 * (lam_th**2 - lam_r**2) +
-        dW_dI2 * (lam_z**2 * (lam_th**2 - lam_r**2)) +
-        dW_dI4th * (lam_th**2)
-    )
+def sigma_theta_from_dPsi_dC(lam_th, lam_r, dW_dC_rr, dW_dC_tt):
+    # σθ = 2(λθ^2 dW/dC_tt − λr^2 dW/dC_rr)  [p eliminated via σr=0]
+    return 2.0 * ( (lam_th**2) * dW_dC_tt - (lam_r**2) * dW_dC_rr )
 
 @tf.function(reduce_retracing=True)
-def sigma_z_from_derivs(lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4z):
-    lam_th = tf.clip_by_value(lam_th, LMIN, LMAX)
-    lam_z  = tf.clip_by_value(lam_z,  LMIN, LMAX)
-    lam_r = 1.0 / (lam_th * lam_z + 1e-8)
-    return 2.0 * (
-        dW_dI1 * (lam_z**2 - lam_r**2) +
-        dW_dI2 * (lam_th**2 * (lam_z**2 - lam_r**2)) +
-        dW_dI4z * (lam_z**2)
-    )
+def sigma_z_from_dPsi_dC(lam_z, lam_r, dW_dC_rr, dW_dC_zz):
+    # σz = 2(λz^2 dW/dC_zz − λr^2 dW/dC_rr)
+    return 2.0 * ( (lam_z**2)  * dW_dC_zz - (lam_r**2) * dW_dC_rr )
 
 # -----------------------------------------------------------------------------
-# Model: invariant-based Ψ(I1,I2,I4θ,I4z)
+# Model: Ψ(C_rr, C_tt, C_zz) with nonnegative mixer
 # -----------------------------------------------------------------------------
 def regularizer(kind, pen):
     if pen <= 0: return None
     return keras.regularizers.l2(pen) if kind == "L2" else keras.regularizers.l1(pen)
 
 class PsiNet(keras.Model):
-    """Tiny nonnegative-mixed network for Ψ with invariant-wise branches."""
+    """Ψ(C) with three feature branches (C_rr, C_tt, C_zz)."""
     def __init__(self, reg_kind="L1", reg_pen=0.0):
         super().__init__()
         reg = regularizer(reg_kind, reg_pen)
-        self.shift_I1  = tf.constant(3.0, dtype=tf.float32)
-        self.shift_I2  = tf.constant(3.0, dtype=tf.float32)
-        self.shift_I4  = tf.constant(1.0, dtype=tf.float32)
+        self.shift_C = tf.constant(1.0, dtype=tf.float32)  # identity at C=1
 
         kzer = keras.initializers.Zeros()
-        def pos_init(seed): return keras.initializers.RandomUniform(minval=0.0, maxval=0.1, seed=SEED + seed)
+        def pos_init(seed):
+            return keras.initializers.RandomUniform(minval=0.0, maxval=0.1, seed=SEED + seed)
 
         def branch(seed_base: int):
+            # four single-neuron layers -> features: lin, expm1, quad-lin, quad-expm1
             return [
-                keras.layers.Dense(1, use_bias=False, kernel_initializer=kzer,              kernel_regularizer=reg),           # linear
-                keras.layers.Dense(1, use_bias=False, kernel_initializer=pos_init(seed_base + 1), kernel_regularizer=reg, kernel_constraint=keras.constraints.NonNeg()),  # exp
-                keras.layers.Dense(1, use_bias=False, kernel_initializer=kzer,              kernel_regularizer=reg),           # quad linear
-                keras.layers.Dense(1, use_bias=False, kernel_initializer=pos_init(seed_base + 2), kernel_regularizer=reg, kernel_constraint=keras.constraints.NonNeg()),  # quad exp
+                keras.layers.Dense(1, use_bias=False, kernel_initializer=kzer, kernel_regularizer=reg),  # lin
+                keras.layers.Dense(1, use_bias=False, kernel_initializer=pos_init(seed_base+1),
+                                   kernel_regularizer=reg, kernel_constraint=keras.constraints.NonNeg()), # exp
+                keras.layers.Dense(1, use_bias=False, kernel_initializer=kzer, kernel_regularizer=reg),  # quad lin
+                keras.layers.Dense(1, use_bias=False, kernel_initializer=pos_init(seed_base+2),
+                                   kernel_regularizer=reg, kernel_constraint=keras.constraints.NonNeg()), # quad exp
             ]
 
-        self.bI1   = branch(10)
-        self.bI2   = branch(20)
-        self.bI4th = branch(30)
-        self.bI4z  = branch(40)
+        self.bCrr = branch(10)
+        self.bCtt = branch(20)
+        self.bCzz = branch(30)
 
+        # mixer combines 12 features -> scalar Ψ, constrained nonnegative
         self.mixer = keras.layers.Dense(
             1, use_bias=False, kernel_constraint=keras.constraints.NonNeg(), kernel_regularizer=reg
         )
 
-    def call(self, I1, I2, I4th, I4z, training=False):
-        I1r = I1 - self.shift_I1
-        I2r = I2 - self.shift_I2
-        I4thr = I4th - self.shift_I4
-        I4zr  = I4z  - self.shift_I4
+    def call(self, C_rr, C_tt, C_zz, training=False):
+        # center at identity
+        Crr = C_rr - self.shift_C
+        Ctt = C_tt - self.shift_C
+        Czz = C_zz - self.shift_C
 
         def safe_expm1(z):
             z = tf.clip_by_value(z, -EXP_CLIP, EXP_CLIP)
             return tf.math.expm1(z)
 
         def apply_branch(x, layers):
-            t1 = layers[0](x)
-            t2 = safe_expm1(layers[1](x))
-            x2 = tf.square(x)
-            t3 = layers[2](x2)
-            t4 = safe_expm1(layers[3](x2))
+            t1  = layers[0](x)
+            t2  = safe_expm1(layers[1](x))
+            x2  = tf.square(x)
+            t3  = layers[2](x2)
+            t4  = safe_expm1(layers[3](x2))
             return tf.concat([t1, t2, t3, t4], axis=1)
 
         feat = tf.concat([
-            apply_branch(I1r,  self.bI1),
-            apply_branch(I2r,  self.bI2),
-            apply_branch(I4thr,self.bI4th),
-            apply_branch(I4zr, self.bI4z),
+            apply_branch(Crr, self.bCrr),
+            apply_branch(Ctt, self.bCtt),
+            apply_branch(Czz, self.bCzz),
         ], axis=1)
 
         psi = self.mixer(feat)
         return tf.squeeze(psi, axis=1)
 
 # -----------------------------------------------------------------------------
-# Training (custom loops so we can take dΨ/dI with GradientTape)
+# Training (custom loops so we can take dΨ/dC with GradientTape)
 # -----------------------------------------------------------------------------
 def _make_joint_dataset(X_th, y_th, X_z, y_z, batch):
+    # Build a single dataset with NaN targets for the missing label
     X_list, ytheta_list, yz_list = [], [], []
     if X_th.shape[0] > 0:
-        X_list.append(X_th); ytheta_list.append(y_th); yz_list.append(np.full_like(y_th, np.nan))
+        X_list.append(X_th)
+        ytheta_list.append(y_th)
+        yz_list.append(np.full_like(y_th, np.nan))
     if X_z.shape[0] > 0:
-        X_list.append(X_z);  ytheta_list.append(np.full_like(y_z, np.nan)); yz_list.append(y_z)
-    if not X_list: return None
+        X_list.append(X_z)
+        ytheta_list.append(np.full_like(y_z, np.nan))
+        yz_list.append(y_z)
+
+    if not X_list:
+        return None
 
     X = np.concatenate(X_list, axis=0).astype(np.float32)
     ytheta = np.concatenate(ytheta_list, axis=0).astype(np.float32)
@@ -354,28 +307,31 @@ def _compute_joint_grads(model, xb, ytheta, yz):
     lam_z  = xb[:, 1:2]
 
     with tf.GradientTape() as tape_out:
-        I1, I2, I4th, I4z = invariants_from_stretches(lam_th, lam_z)
+        C_rr, C_tt, C_zz, lam_r = C_from_stretches(lam_th, lam_z)
         with tf.GradientTape() as tape_in:
-            tape_in.watch([I1, I2, I4th, I4z])
-            psi = model(I1, I2, I4th, I4z, training=True)
+            tape_in.watch([C_rr, C_tt, C_zz])
+            psi = model(C_rr, C_tt, C_zz, training=True)
 
-        dW_dI1, dW_dI2, dW_dI4th, dW_dI4z = tape_in.gradient(psi, [I1, I2, I4th, I4z])
+        dW_dC_rr, dW_dC_tt, dW_dC_zz = tape_in.gradient(psi, [C_rr, C_tt, C_zz])
 
-        sig_th_hat = tf.squeeze(sigma_theta_from_derivs(lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4th), 1)
-        sig_z_hat  = tf.squeeze(sigma_z_from_derivs(   lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4z),  1)
+        sig_th_hat = sigma_theta_from_dPsi_dC(lam_th, lam_r, dW_dC_rr, dW_dC_tt)
+        sig_z_hat  = sigma_z_from_dPsi_dC(   lam_z,  lam_r, dW_dC_rr, dW_dC_zz)
+        sig_th_hat = tf.squeeze(sig_th_hat, 1)
+        sig_z_hat  = tf.squeeze(sig_z_hat,  1)
 
         m_th = tf.math.is_finite(ytheta)
         m_z  = tf.math.is_finite(yz)
 
+        # MSE losses on available labels
         loss_th = tf.reduce_mean(tf.square(tf.boolean_mask(sig_th_hat, m_th) - tf.boolean_mask(ytheta, m_th))) if tf.reduce_any(m_th) else 0.0
         loss_z  = tf.reduce_mean(tf.square(tf.boolean_mask(sig_z_hat,  m_z)  - tf.boolean_mask(yz,     m_z)))  if tf.reduce_any(m_z)  else 0.0
 
-        # balance losses so one head can't dominate by count
-        n_th = tf.reduce_sum(tf.cast(m_th, tf.float32))
-        n_z  = tf.reduce_sum(tf.cast(m_z,  tf.float32))
+        # balance heads by count
+        n_th  = tf.reduce_sum(tf.cast(m_th, tf.float32))
+        n_z   = tf.reduce_sum(tf.cast(m_z,  tf.float32))
         n_tot = tf.maximum(n_th + n_z, 1.0)
-        w_th = tf.where(n_th > 0, n_tot / (2.0 * n_th), 0.0)
-        w_z  = tf.where(n_z  > 0, n_tot / (2.0 * n_z),  0.0)
+        w_th  = tf.where(n_th > 0, n_tot / (2.0 * n_th), 0.0)
+        w_z   = tf.where(n_z  > 0, n_tot / (2.0 * n_z),  0.0)
 
         loss = w_th * loss_th + w_z * loss_z
 
@@ -385,7 +341,7 @@ def _compute_joint_grads(model, xb, ytheta, yz):
 def train_joint(model, X_th, y_th, X_z, y_z, epochs, batch, lr):
     ds = _make_joint_dataset(X_th, y_th, X_z, y_z, batch)
     if ds is None:
-        print("[SKIP] No data for joint training"); 
+        print("[SKIP] No data for joint training")
         return
 
     opt = keras.optimizers.legacy.Adam(learning_rate=lr, clipnorm=5.0)
@@ -430,54 +386,53 @@ def quick_scatter(x, y, yhat, xlabel, ylabel, title, out_png):
 def save_weights(model, outdir):
     os.makedirs(outdir, exist_ok=True)
 
-    # --- readable export (text + csv) ---
     def _scalar(var):
         v = var.numpy()
         return float(v.reshape(-1)[0])
 
     names4 = ["lin", "exp", "quad_lin", "quad_exp"]
     branches = [
-        ("I1",      model.bI1),
-        ("I2",      model.bI2),
-        ("I4theta", model.bI4th),
-        ("I4z",     model.bI4z),
+        ("C_rr", model.bCrr),
+        ("C_tt", model.bCtt),
+        ("C_zz", model.bCzz),
     ]
 
-    branch_rows = []
-    for inv, br in branches:
+    # collect branch scalars (each Dense has kernel shape (1,1))
+    branch_rows = []  # (name, feature, weight)
+    for nm, br in branches:
         for feat_name, layer in zip(names4, br):
             w = _scalar(layer.kernel)
-            branch_rows.append((inv, feat_name, w))
+            branch_rows.append((nm, feat_name, w))
 
-    mixer_w = model.mixer.kernel.numpy().reshape(-1)  # length 16
+    # mixer (maps 12 features -> 1 Ψ)
+    mixer_w = model.mixer.kernel.numpy().reshape(-1)  # length 12
     feature_order = (
-        [f"I1_{n}" for n in names4] +
-        [f"I2_{n}" for n in names4] +
-        [f"I4theta_{n}" for n in names4] +
-        [f"I4z_{n}" for n in names4]
+        [f"C_rr_{n}" for n in names4] +
+        [f"C_tt_{n}" for n in names4] +
+        [f"C_zz_{n}" for n in names4]
     )
 
+    # --- write text report ---
     txt_path = os.path.join(outdir, "Psi_weights.txt")
     with open(txt_path, "w") as f:
-        f.write("Ψ-Net weights (by invariant/feature)\n")
-        f.write("====================================\n\n")
-        f.write("Invariant reference shifts used inside model:\n")
-        f.write(f"  shift_I1 = {float(model.shift_I1.numpy())}\n")
-        f.write(f"  shift_I2 = {float(model.shift_I2.numpy())}\n")
-        f.write(f"  shift_I4 = {float(model.shift_I4.numpy())}\n\n")
+        f.write("Ψ-Net weights (C-based)\n")
+        f.write("========================\n\n")
+        f.write("Reference shift used inside model:\n")
+        f.write(f"  shift_C = {float(model.shift_C.numpy())}\n\n")
 
         f.write("Branch weights (pre-activation scalars):\n")
-        last_inv = None
-        for inv, feat, w in branch_rows:
-            if inv != last_inv:
-                f.write(f"\n[{inv}]\n")
-                last_inv = inv
+        last_nm = None
+        for nm, feat, w in branch_rows:
+            if nm != last_nm:
+                f.write(f"\n[{nm}]\n")
+                last_nm = nm
             f.write(f"  {feat:9s}: {w:+.6e}\n")
 
         f.write("\nMixer weights (feature -> Ψ):\n")
         for name, w in zip(feature_order, mixer_w):
-            f.write(f"  {name:14s} -> {w:+.6e}\n")
+            f.write(f"  {name:10s} -> {w:+.6e}\n")
 
+    # --- write CSV for mixer ---
     import csv
     csv_path = os.path.join(outdir, "Psi_mixer_features.csv")
     with open(csv_path, "w", newline="") as cf:
@@ -486,14 +441,17 @@ def save_weights(model, outdir):
         for name, w in zip(feature_order, mixer_w):
             writer.writerow([name, f"{w:.8e}"])
 
+    # --- keep checkpoint + a tiny meta ---
     ckpt = tf.train.Checkpoint(psinet=model)
     ckpt.write(os.path.join(outdir, "Psi_ckpt"))
     with open(os.path.join(outdir, "meta.json"), "w") as f:
-        json.dump({"reg": REG_KIND, "pen": REG_PEN}, f, indent=2)
+        json.dump({"reg": REG_KIND, "pen": REG_PEN, "psi_form": "C-based"}, f, indent=2)
 
-    print(f"[WEIGHTS] Saved readable weights to:\n  - {txt_path}\n  - {csv_path}")
+    print(f"[WEIGHTS] Saved readable weights to:\n"
+          f"  - {txt_path}\n  - {csv_path}")
 
 def parse_cli_or_defaults():
+    # Keep VS Code defaults unless CLUSTER_RUN=1
     if os.environ.get("CLUSTER_RUN", "0") != "1":
         return dict(
             data_root=DATA_ROOT, out_root=OUT_ROOT,
@@ -519,6 +477,7 @@ def parse_cli_or_defaults():
 # main()
 # -----------------------------------------------------------------------------
 def main():
+
     cfg = parse_cli_or_defaults()
     global DATA_ROOT, OUT_ROOT, EPOCHS_TH, EPOCHS_Z, BATCH, LR, REG_KIND, REG_PEN, SEED, FAST_DEV
     DATA_ROOT = cfg['data_root']; OUT_ROOT = cfg['out_root']
@@ -540,10 +499,6 @@ def main():
         blob = parse_csvs_for_age(age_dir)
         X_th, y_th, X_z, y_z = build_dataset(blob)
 
-        # Augment (offline)
-        X_th, y_th, X_z, y_z = maybe_augment(X_th, y_th, X_z, y_z)
-        print(f"[AUG] After augmentation: Nθ={len(y_th)}  Nz={len(y_z)}")
-
         outdir = os.path.join(OUT_ROOT, age)
         os.makedirs(outdir, exist_ok=True)
 
@@ -551,21 +506,21 @@ def main():
             print(f"[SKIP] {age}: no usable data.")
             continue
 
-        # Strategy scope (single GPU/CPU default)
+        # ==== B) Multi-GPU / single-GPU strategy scope ====
         num_gpus = len(tf.config.list_physical_devices('GPU'))
         use_mirrored = (os.environ.get("USE_MIRRORED", "0") == "1") and (num_gpus >= 2)
         strategy = tf.distribute.MirroredStrategy() if use_mirrored else tf.distribute.get_strategy()
         print(f"[STRATEGY] Using {'MirroredStrategy' if use_mirrored else 'DefaultStrategy'} (GPUs: {num_gpus})")
-
         with strategy.scope():
+            # Build ONE shared Psi model
             model = PsiNet(REG_KIND, REG_PEN)
-            # force variable creation
+            # Force variable creation
             _lam_th = tf.ones((1,1), dtype=tf.float32)
             _lam_z  = tf.ones((1,1), dtype=tf.float32)
-            I1, I2, I4th, I4z = invariants_from_stretches(_lam_th, _lam_z)
-            _ = model(I1, I2, I4th, I4z, training=False)
+            C_rr, C_tt, C_zz, _ = C_from_stretches(_lam_th, _lam_z)
+            _ = model(C_rr, C_tt, C_zz, training=False)
 
-            # resume checkpoint
+            # ==== C) Resume from checkpoint if available ====
             ckpt_path = os.path.join(outdir, "Psi_ckpt")
             ckpt = tf.train.Checkpoint(psinet=model)
             if tf.io.gfile.exists(ckpt_path + ".index"):
@@ -575,7 +530,7 @@ def main():
             print(f"==> {age}: joint training (Pd+Fl): Nθ={X_th.shape[0]}  Nz={X_z.shape[0]}")
             train_joint(model, X_th, y_th, X_z, y_z, max(EPOCHS_TH, EPOCHS_Z), BATCH, LR)
 
-            # Save checkpoint
+            # Save final checkpoint
             ckpt.write(ckpt_path)
 
         # Evaluate / plots
@@ -584,12 +539,11 @@ def main():
             lam_z  = tf.convert_to_tensor(X_th[:,1:2], dtype=tf.float32)
             with tf.GradientTape(persistent=True) as tape:
                 tape.watch([lam_th, lam_z])
-                I1, I2, I4th, I4z = invariants_from_stretches(lam_th, lam_z)
-                psi = model(I1, I2, I4th, I4z, training=False)
-            dW_dI1   = tape.gradient(psi, I1)
-            dW_dI2   = tape.gradient(psi, I2)
-            dW_dI4th = tape.gradient(psi, I4th)
-            sig_hat  = sigma_theta_from_derivs(lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4th)[:,0].numpy()
+                C_rr, C_tt, C_zz, lam_r = C_from_stretches(lam_th, lam_z)
+                psi = model(C_rr, C_tt, C_zz, training=False)
+            dW_dC_rr = tape.gradient(psi, C_rr)
+            dW_dC_tt = tape.gradient(psi, C_tt)
+            sig_hat  = sigma_theta_from_dPsi_dC(lam_th, lam_r, dW_dC_rr, dW_dC_tt)[:,0].numpy()
             quick_scatter(X_th[:,0], y_th, sig_hat, r"$\lambda_\theta$", r"$\sigma_\theta$ (kPa)",
                           f"{age} – Pd (all)", os.path.join(outdir, "fit_pd_theta_vs_lambda_theta.png"))
 
@@ -598,12 +552,11 @@ def main():
             lam_z  = tf.convert_to_tensor(X_z[:,1:2], dtype=tf.float32)
             with tf.GradientTape(persistent=True) as tape:
                 tape.watch([lam_th, lam_z])
-                I1, I2, I4th, I4z = invariants_from_stretches(lam_th, lam_z)
-                psi = model(I1, I2, I4th, I4z, training=False)
-            dW_dI1  = tape.gradient(psi, I1)
-            dW_dI2  = tape.gradient(psi, I2)
-            dW_dI4z = tape.gradient(psi, I4z)
-            sig_hat = sigma_z_from_derivs(lam_th, lam_z, dW_dI1, dW_dI2, dW_dI4z)[:,0].numpy()
+                C_rr, C_tt, C_zz, lam_r = C_from_stretches(lam_th, lam_z)
+                psi = model(C_rr, C_tt, C_zz, training=False)
+            dW_dC_rr = tape.gradient(psi, C_rr)
+            dW_dC_zz = tape.gradient(psi, C_zz)
+            sig_hat  = sigma_z_from_dPsi_dC(lam_z, lam_r, dW_dC_rr, dW_dC_zz)[:,0].numpy()
             quick_scatter(X_z[:,1], y_z, sig_hat, r"$\lambda_z$", r"$\sigma_z$ (kPa)",
                           f"{age} – Fl (all)", os.path.join(outdir, "fit_fl_sigma_z_vs_lambda_z.png"))
 

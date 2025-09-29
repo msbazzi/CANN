@@ -1,0 +1,29 @@
+Found ages: ['28weeks']
+Processing age: 28weeks (/scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks)
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_fl60.csv for Dodge (fl, lvl=60) → N=375
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_pd105.csv for Dodge (pd, lvl=105) → N=504
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_fl100.csv for Dodge (fl, lvl=100) → N=383
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_pd95.csv for Dodge (pd, lvl=95) → N=473
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_fl140.csv for Dodge (fl, lvl=140) → N=171
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_fl10.csv for Dodge (fl, lvl=10) → N=398
+[INFO] Parsed /scratch/users/msbazzi/CANN/Learning_rate/CANN/Growing_IVC/data/28weeks/Dodge_pd100.csv for Dodge (pd, lvl=100) → N=343
+[AUG] After augmentation: Nθ=900  Nz=1071
+[STRATEGY] Using DefaultStrategy (GPUs: 0)
+==> 28weeks: joint training (Pd+Fl): Nθ=900  Nz=1071
+[joint] epoch 1  loss=683.24870  (θ=213.12888, z=481.14825)  lr=3.000e-03
+[joint] epoch 2  loss=528.81493  (θ=158.92359, z=379.58436)  lr=3.000e-03
+[joint] epoch 3  loss=324.45192  (θ=93.72615, z=237.30303)  lr=3.000e-03
+[joint] epoch 4  loss=164.37725  (θ=63.64060, z=100.80032)  lr=3.000e-03
+[joint] epoch 5  loss=106.91611  (θ=57.53910, z=46.04807)  lr=3.000e-03
+[joint] epoch 20  loss=41.37520  (θ=17.41303, z=23.51459)  lr=3.000e-03
+[joint] epoch 40  loss=38.76835  (θ=18.24045, z=19.77631)  lr=3.000e-03
+[joint] epoch 60  loss=37.79891  (θ=18.02893, z=18.97858)  lr=3.000e-03
+[joint] epoch 80  loss=37.39028  (θ=17.89472, z=18.69550)  lr=3.000e-03
+[joint] epoch 100  loss=37.30380  (θ=17.80687, z=18.70544)  lr=3.000e-03
+[joint] early stop at epoch 112 (best=37.30380)  lr=3.000e-03
+[WEIGHTS] Saved readable weights to:
+  - /scratch/users/msbazzi/CANN/Learning_rate/out_lr/lr_3e-3/28weeks/Psi_weights.txt
+  - /scratch/users/msbazzi/CANN/Learning_rate/out_lr/lr_3e-3/28weeks/Psi_mixer_features.csv
+[FORM]    Saved suggested Ψ form to:
+  - /scratch/users/msbazzi/CANN/Learning_rate/out_lr/lr_3e-3/28weeks/Psi_suggested.txt
+[DONE] Saved to /scratch/users/msbazzi/CANN/Learning_rate/out_lr/lr_3e-3/28weeks

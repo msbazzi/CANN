@@ -1,0 +1,85 @@
+Ψ-Net weights (vCANN invariants)
+================================
+
+Invariant reference shifts (all 1.0 at C=I):
+  shift_Iiso = 1.0
+  shift_Ith = 1.0
+  shift_Iz = 1.0
+  shift_Jiso = 1.0
+  shift_Jth = 1.0
+  shift_Jz = 1.0
+  shift_IIIc = 1.0
+
+Branch weights (pre-activation scalars):
+
+[Iiso]
+  lin      : +4.529904e-04
+  exp      : +1.562621e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +1.657952e-02
+
+[Ith]
+  lin      : +4.529904e-04
+  exp      : +3.506666e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +4.326672e-02
+
+[Iz]
+  lin      : +4.529904e-04
+  exp      : +2.444928e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +2.499408e-02
+
+[Jiso]
+  lin      : +4.529904e-04
+  exp      : +4.722986e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +1.245879e-02
+
+[Jth]
+  lin      : +4.529904e-04
+  exp      : +4.009067e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +3.135511e-02
+
+[Jz]
+  lin      : +4.529904e-04
+  exp      : +3.403675e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +4.576630e-02
+
+[IIIc]
+  lin      : +4.529904e-04
+  exp      : +1.723368e-02
+  quad_lin : +4.529904e-04
+  quad_exp : +4.833782e-02
+
+Mixer weights (feature → Ψ):
+  Iiso_lin       -> +4.997142e-02
+  Iiso_exp       -> +3.632849e-02
+  Iiso_quad_lin  -> +1.364205e-02
+  Iiso_quad_exp  -> +4.760589e-02
+  Ith_lin        -> +3.123742e-02
+  Ith_exp        -> +2.402346e-02
+  Ith_quad_lin   -> +2.407134e-02
+  Ith_quad_exp   -> +2.930741e-02
+  Iz_lin         -> +4.991747e-02
+  Iz_exp         -> +4.461274e-02
+  Iz_quad_lin    -> +3.601056e-02
+  Iz_quad_exp    -> +3.628357e-02
+  Jiso_lin       -> +3.974621e-02
+  Jiso_exp       -> +4.530051e-02
+  Jiso_quad_lin  -> +4.827392e-02
+  Jiso_quad_exp  -> +1.364757e-02
+  Jth_lin        -> +2.338531e-02
+  Jth_exp        -> +2.918950e-02
+  Jth_quad_lin   -> +2.444444e-02
+  Jth_quad_exp   -> +3.822286e-02
+  Jz_lin         -> +3.033148e-02
+  Jz_exp         -> +3.642049e-02
+  Jz_quad_lin    -> +1.782713e-02
+  Jz_quad_exp    -> +2.449780e-02
+  IIIc_lin       -> +3.090473e-02
+  IIIc_exp       -> +3.287708e-02
+  IIIc_quad_lin  -> +2.130326e-02
+  IIIc_quad_exp  -> +2.151952e-02

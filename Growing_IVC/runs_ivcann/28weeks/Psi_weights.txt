@@ -5,68 +5,47 @@ Invariant reference shifts used inside model:
   shift_I1 = 3.0
   shift_I2 = 3.0
   shift_I4 = 1.0
-  (learned) phi  = 45.000 deg
 
 Branch weights (pre-activation scalars):
 
 [I1]
-  lin      : +7.487609e-01
-  exp      : +8.227009e-01
-  quad_lin : +6.157858e-01
-  quad_exp : +4.309343e-01
+  lin      : -5.454911e-13
+  exp      : +1.377496e-01
+  quad_lin : -1.506071e+00
+  quad_exp : +4.039521e-04
 
 [I2]
-  lin      : -8.735402e-01
-  exp      : +3.134008e-01
-  quad_lin : -2.331679e-01
-  quad_exp : +4.539512e-01
+  lin      : +9.198546e-09
+  exp      : +1.758867e-05
+  quad_lin : +3.752046e-02
+  quad_exp : +8.199254e-01
 
-[I4θ]
-  lin      : +0.000000e+00
-  exp      : +7.522669e-02
-  quad_lin : +0.000000e+00
-  quad_exp : +5.338779e-02
+[I4theta]
+  lin      : -1.175650e+00
+  exp      : +1.808098e+00
+  quad_lin : -2.169987e+00
+  quad_exp : -0.000000e+00
 
 [I4z]
-  lin      : +0.000000e+00
-  exp      : +1.808419e-02
-  quad_lin : +0.000000e+00
-  quad_exp : +9.584454e-02
+  lin      : +9.331098e-36
+  exp      : +1.214920e+00
+  quad_lin : +2.001542e+00
+  quad_exp : +3.118498e-07
 
-[I4a]
-  lin      : -2.879371e-02
-  exp      : +8.540118e-01
-  quad_lin : -2.879371e-02
-  quad_exp : +3.335241e-01
-
-[I4b]
-  lin      : -2.879371e-02
-  exp      : +8.789349e-01
-  quad_lin : -2.879371e-02
-  quad_exp : +3.585212e-01
-
-Mixer weights (feature → Ψ):
-  I1_lin         -> +1.628416e-01
-  I1_exp         -> +1.641506e-01
-  I1_quad_lin    -> +1.509693e-01
-  I1_quad_exp    -> +9.260848e-01
-  I2_lin         -> +5.641844e-01
-  I2_exp         -> +5.262451e-01
-  I2_quad_lin    -> +2.442686e-01
-  I2_quad_exp    -> +2.107079e-01
-  I4theta_lin    -> -0.000000e+00
-  I4theta_exp    -> -0.000000e+00
-  I4theta_quad_lin -> +3.437653e-01
-  I4theta_quad_exp -> +3.576300e-01
-  I4z_lin        -> -0.000000e+00
-  I4z_exp        -> -0.000000e+00
-  I4z_quad_lin   -> -0.000000e+00
-  I4z_quad_exp   -> +2.821144e-02
-  I4a_lin        -> -0.000000e+00
-  I4a_exp        -> +1.953022e+00
-  I4a_quad_lin   -> -0.000000e+00
-  I4a_quad_exp   -> +1.210534e+00
-  I4b_lin        -> -0.000000e+00
-  I4b_exp        -> +1.459847e+00
-  I4b_quad_lin   -> -0.000000e+00
-  I4b_quad_exp   -> +9.502920e-01
+Mixer weights (feature -> Ψ):
+  I1_lin         -> -0.000000e+00
+  I1_exp         -> +2.397455e+00
+  I1_quad_lin    -> +2.340647e-02
+  I1_quad_exp    -> +4.754737e-02
+  I2_lin         -> +7.131581e-11
+  I2_exp         -> +4.096507e-03
+  I2_quad_lin    -> +1.589399e-01
+  I2_quad_exp    -> +3.310085e-02
+  I4theta_lin    -> +1.284601e+00
+  I4theta_exp    -> +2.475427e+00
+  I4theta_quad_lin -> +1.601508e+00
+  I4theta_quad_exp -> +5.588937e-01
+  I4z_lin        -> +0.000000e+00
+  I4z_exp        -> +2.413849e-01
+  I4z_quad_lin   -> +4.709187e-01
+  I4z_quad_exp   -> +8.456569e-09

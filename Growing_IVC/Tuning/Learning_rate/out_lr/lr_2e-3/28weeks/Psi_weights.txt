@@ -1,0 +1,72 @@
+Ψ-Net weights (by invariant/feature)
+====================================
+
+Invariant reference shifts used inside model:
+  shift_I1 = 3.0
+  shift_I2 = 3.0
+  shift_I4 = 1.0
+  (learned) phi  = 45.000 deg
+
+Branch weights (pre-activation scalars):
+
+[I1]
+  lin      : -5.196177e-01
+  exp      : +1.388529e-04
+  quad_lin : -5.196177e-01
+  quad_exp : +6.083525e-01
+
+[I2]
+  lin      : -7.337627e-03
+  exp      : +8.057030e-06
+  quad_lin : -5.170602e-01
+  quad_exp : +1.906967e-03
+
+[I4θ]
+  lin      : +0.000000e+00
+  exp      : +9.891362e-02
+  quad_lin : +0.000000e+00
+  quad_exp : +4.044203e-02
+
+[I4z]
+  lin      : +0.000000e+00
+  exp      : +9.123595e-02
+  quad_lin : +0.000000e+00
+  quad_exp : +2.071911e-02
+
+[I4a]
+  lin      : +8.271752e-15
+  exp      : +4.068815e-02
+  quad_lin : -3.342588e-03
+  quad_exp : +7.202872e-05
+
+[I4b]
+  lin      : +1.154251e+00
+  exp      : +4.843772e-02
+  quad_lin : +1.189612e+00
+  quad_exp : +8.638998e-04
+
+Mixer weights (feature → Ψ):
+  I1_lin         -> +1.091939e+00
+  I1_exp         -> +5.472911e-01
+  I1_quad_lin    -> +1.091939e+00
+  I1_quad_exp    -> +1.259705e+00
+  I2_lin         -> +3.571564e-01
+  I2_exp         -> +3.351073e-01
+  I2_quad_lin    -> +1.099441e-01
+  I2_quad_exp    -> +2.097530e-02
+  I4theta_lin    -> +9.117982e-02
+  I4theta_exp    -> -0.000000e+00
+  I4theta_quad_lin -> -0.000000e+00
+  I4theta_quad_exp -> +1.431532e-01
+  I4z_lin        -> -0.000000e+00
+  I4z_exp        -> +8.104339e-02
+  I4z_quad_lin   -> +4.708522e-01
+  I4z_quad_exp   -> -0.000000e+00
+  I4a_lin        -> -0.000000e+00
+  I4a_exp        -> +9.220483e-01
+  I4a_quad_lin   -> +8.754599e-04
+  I4a_quad_exp   -> +3.033687e-01
+  I4b_lin        -> +1.262422e+00
+  I4b_exp        -> +5.506203e-01
+  I4b_quad_lin   -> +1.401744e+00
+  I4b_quad_exp   -> +4.320430e-01

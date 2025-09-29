@@ -24,8 +24,8 @@ DATA_ROOT = "data"            # root folder with age subfolders
 OUT_ROOT  = "runs_ivcann"     # outputs per age go here
 EPOCHS_TH = 4000              # epochs for θ (Pd) fit
 EPOCHS_Z  = 4000              # epochs for z (Fl) fit
-BATCH     = 64                # batch size
-LR        = 1e-3              # learning rate
+BATCH     = 32                # batch size
+LR        = 1e-2              # learning rate
 REG_KIND  = "L2"              # "L1" or "L2"
 REG_PEN   = 0.0               # regularization strength
 SEED      = 42                # reproducibility (ish)
@@ -40,7 +40,7 @@ FAST_EPOCHS_TH      = 400  # override EPOCHS_TH when FAST_DEV
 FAST_EPOCHS_Z       = 400  # override EPOCHS_Z  when FAST_DEV
 
 # --- Augmentation (offline, before building tf.data) ---
-AUG_ON        = True     # turn augmentation on/off
+AUG_ON        = False     # turn augmentation on/off
 AUG_DUP       = 2        # how many jittered duplicates to add (0 = none)
 AUG_MIXUP     = True     # add a mixup copy of the dataset
 AUG_ALPHA     = 0.2      # beta(alpha, alpha) for mixup

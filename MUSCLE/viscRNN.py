@@ -2,41 +2,49 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-# custom RNN cell to learn Prony series parameters
-class ViscRNNCellGen(keras.layers.Layer):
 
+# custom RNN cell to learn Prony series parameters
+class ViscRNNCellGen(tf.keras.layers.AbstractRNNCell):
     def __init__(self, units, **kwargs):
-        self.state_size = [tf.TensorShape([1]), tf.TensorShape([units])]
-        self.units = units
-        super(ViscRNNCellGen, self).__init__(**kwargs)
+        super().__init__(**kwargs)
+        self.units = int(units)
+        self._output_units = 1 + self.units  # output = [sig0, h_vector]
+
+    @property
+    def state_size(self):
+        return [1, self.units]  # sig0 scalar, h vector
+
+    @property
+    def output_size(self):
+        return self._output_units  # plain int
 
     def build(self, input_shape):
-        self.tau = self.add_weight(shape=(1, self.units),
-                                   initializer=keras.initializers.RandomUniform(minval=0.01, maxval=1.), name='tau')
-        self.built = True
+        self.tau = self.add_weight(
+            name="tau",
+            shape=(self.units,),
+            initializer=tf.keras.initializers.RandomUniform(minval=0.01, maxval=1.0),
+            trainable=True,
+        )
+        super().build(input_shape)
 
     def call(self, inputs, states):
-        scaleFactor = tf.constant([1000.])  # scale factor can be adjusted to see if training improves
+        sig0_prev, h_prev = states                    # (...,1), (...,units)
+        dt, sig0 = tf.split(inputs, 2, axis=-1)       # (...,1), (...,1)
 
-        (sig0_prev, h_prev) = states  # stored from previous time step
+        tau_pos = tf.nn.relu(self.tau) + 1e-5         # (units,)
+        scale = 1000.0
 
-        dt, sig0 = tf.split(inputs, num_or_size_splits=2, axis=1)
+        dt_units = tf.broadcast_to(dt, tf.concat([tf.shape(dt)[:-1], [self.units]], axis=0))  # (...,units)
+        a = tf.exp(-dt_units / (tau_pos * scale))                 # (...,units)
+        b = tf.exp(-dt_units / (2.0 * tau_pos * scale))           # (...,units)
 
-        tauPos = tf.nn.relu(self.tau) + tf.constant([1e-5])  # constrain parameters to be positive
+        dsig = sig0 - sig0_prev                                   # (...,1)
+        dsig_units = tf.broadcast_to(dsig, tf.shape(a))           # (...,units)
 
-        a = tf.math.exp(tf.math.divide(tf.math.multiply(tf.constant([-1.]), dt), tauPos * scaleFactor))
+        h = a * h_prev + b * dsig_units                           # (...,units)
+        output = tf.concat([sig0, h], axis=-1)                    # (..., 1+units)
 
-        b = tf.math.exp(tf.math.divide(tf.math.multiply(tf.constant([-1.]), dt),
-                                       tf.math.multiply(tf.constant([2.]), tauPos * scaleFactor)))
-
-        dsig = tf.math.subtract(sig0, sig0_prev)
-
-        h = tf.math.add(tf.math.multiply(a, h_prev), tf.math.multiply(b, dsig))
-
-        output = tf.concat([sig0, h], 1)
-
-        return output, (sig0, h)
-
+        return output, [sig0, h]
 
 # custom constraint to have all weights in a layer be positive and sum to 1
 class SumToOne(tf.keras.constraints.Constraint):
@@ -88,41 +96,54 @@ def pStrEnergyTerms(units, inputs):
 #  numUnits: number of terms to include in the initial stored energy function
 #  numHistoryVars: number of terms to include in the relaxation function
 def build_pStr(numUnits, numHistoryVars):
-
     cell = ViscRNNCellGen(numHistoryVars)  # viscoelastic model RNN cell
 
-    stretch = keras.layers.Input(shape=(None, 1), name='input_stretch')  # input: axial stretch
+    stretch = keras.layers.Input(shape=(None, 1), name='input_stretch')  # axial stretch
 
-    with tf.GradientTape() as g:
-        g.watch(stretch)
-        lam1 = keras.layers.Lambda(lambda x: x, name='lam1')(stretch)  # 1st principal stretch
-        lam2 = keras.layers.Lambda(lambda x: tf.math.pow(x, -0.5), name='lam2')(stretch)  # 2nd principal stretch
-        lam3 = keras.layers.Lambda(lambda x: tf.math.pow(x, -0.5), name='lam3')(stretch)  # 3rd principal stretch
+    # principal stretches
+    lam1 = keras.layers.Lambda(lambda x: x, name='lam1')(stretch)
+    lam2 = keras.layers.Lambda(lambda x: tf.math.pow(x, -0.5), name='lam2')(stretch)
+    lam3 = keras.layers.Lambda(lambda x: tf.math.pow(x, -0.5), name='lam3')(stretch)
 
-        pStretches = keras.layers.Concatenate(name='principal_stretches')([lam1, lam2, lam3])
+    pStretches = keras.layers.Concatenate(name='principal_stretches')([lam1, lam2, lam3])
 
-        eTerms = keras.layers.Lambda(lambda x: pStrEnergyTerms(numUnits, x),
-                                     name='pStrTerms')(pStretches)  # calculate powers of the stretches
-        psi = keras.layers.Dense(1, activation='linear', use_bias=False,
-                                 kernel_initializer=keras.initializers.RandomUniform(minval=0.01, maxval=2.),
-                                 kernel_constraint=Positive(), name='ogdenCoeffs')(eTerms)  # stored energy function
+    # stored energy psi(lam)
+    eTerms = keras.layers.Lambda(lambda x: pStrEnergyTerms(numUnits, x),
+                                 name='pStrTerms')(pStretches)
+    psi = keras.layers.Dense(
+        1, activation='linear', use_bias=False,
+        kernel_initializer=keras.initializers.RandomUniform(minval=0.01, maxval=2.),
+        kernel_constraint=Positive(), name='ogdenCoeffs'
+    )(eTerms)
 
-    der = g.gradient(psi, stretch, unconnected_gradients='zero')
-    sig0 = keras.layers.Lambda(lambda x: x[0] * x[1],
-                               name='initialStress')([stretch, der])  # normal initial Cauchy stress in axial direction
+    # dpsi/d(lambda) in graph mode (no GradientTape): use tf.compat.v1.gradients
+    der = keras.layers.Lambda(
+        lambda xs: tf.compat.v1.gradients(xs[0], xs[1], unconnected_gradients='zero')[0],
+        name='dpsi_dlam'
+    )([psi, stretch])
 
-    dt = keras.layers.Input(shape=(None, 1), name='time_step')  # input: time step
+    # sigma0 = lambda * dpsi/dlambda
+    sig0 = keras.layers.Lambda(lambda x: x[0] * x[1], name='initialStress')([stretch, der])
 
+    dt = keras.layers.Input(shape=(None, 1), name='time_step')
     merge = keras.layers.Concatenate(name='rnn_input')([dt, sig0])
+
     rnnOutput = keras.layers.RNN(cell, return_sequences=True, name='relax_function')(merge)
 
-    out = keras.layers.TimeDistributed(keras.layers.Dense(1, kernel_initializer=keras.initializers.RandomUniform(
-                                                              minval=0.01, maxval=1.), use_bias=False,
-                                                          kernel_constraint=SumToOne(), name='stress'))(rnnOutput)
+    out = keras.layers.TimeDistributed(
+        keras.layers.Dense(
+            1,
+            kernel_initializer=keras.initializers.RandomUniform(minval=0.01, maxval=1.),
+            use_bias=False,
+            kernel_regularizer=keras.regularizers.l2(0.0),  # or your r_prony
+            kernel_constraint=SumToOne(),
+            name='stress'
+        )
+    )(rnnOutput)
 
     model = keras.models.Model(inputs=[stretch, dt], outputs=out)
-
     return model
+
 
 
 # %%%% Invariant-based model %%%%
@@ -146,35 +167,40 @@ def myGradient(a, b):
 # assembles invariant-based terms for the initial stored energy function
 #  I_ref: either I1-3 or I2-3
 #  L2: regularization strength
+# SingleInvNet6: replace keras.ops.square -> tf.math.square
+# and keras.ops.concatenate -> tf.concat (or layers.Concatenate)
 def SingleInvNet6(I_ref, L2):
     initializer_1 = 'glorot_normal'
-    initializer_exp = tf.keras.initializers.RandomUniform(minval=0., maxval=0.00001)
-    initializer_log = tf.keras.initializers.RandomUniform(minval=0., maxval=0.00001)
+    initializer_exp = tf.keras.initializers.RandomUniform(minval=0., maxval=1e-5)
+    initializer_log = tf.keras.initializers.RandomUniform(minval=0., maxval=1e-5)
 
-    # linear terms
     I_w11 = keras.layers.Dense(1, kernel_initializer=initializer_1, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=None)(I_ref)
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=None)(I_ref)
     I_w21 = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=activation_Exp)(I_ref)
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=activation_Exp)(I_ref)
     I_w31 = keras.layers.Dense(1, kernel_initializer=initializer_log, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=activation_ln)(I_ref)
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=activation_ln)(I_ref)
 
-    # quadratic terms
+    I_sq = tf.math.square(I_ref)
+
     I_w41 = keras.layers.Dense(1, kernel_initializer=initializer_1, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=None)(tf.math.square(I_ref))
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=None)(I_sq)
     I_w51 = keras.layers.Dense(1, kernel_initializer=initializer_exp, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=activation_Exp)(tf.math.square(I_ref))
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=activation_Exp)(I_sq)
     I_w61 = keras.layers.Dense(1, kernel_initializer=initializer_log, kernel_constraint=keras.constraints.NonNeg(),
-                                 kernel_regularizer=keras.regularizers.l2(L2),
-                                 use_bias=False, activation=activation_ln)(tf.math.square(I_ref))
+                               kernel_regularizer=keras.regularizers.l2(L2),
+                               use_bias=False, activation=activation_ln)(I_sq)
 
     collect = [I_w11, I_w21, I_w31, I_w41, I_w51, I_w61]
-    collect_out = tf.keras.layers.concatenate(collect)
+    # Either:
+    collect_out = tf.concat(collect, axis=-1)
+    # or:
+    # collect_out = keras.layers.Concatenate(axis=-1)(collect)
 
     return collect_out
 
@@ -221,7 +247,7 @@ def build_inv(n, l2, rp):
     I2_out = SingleInvNet6(I2_ref, 0)
 
     ALL_I_out = [I1_out, I2_out]
-    ALL_I_out = tf.keras.layers.concatenate(ALL_I_out)
+    ALL_I_out = keras.layers.Concatenate(axis=-1)(ALL_I_out)
 
     # initial stored energy function
     psi = keras.layers.Dense(1, kernel_initializer='glorot_normal', kernel_constraint=keras.constraints.NonNeg(),

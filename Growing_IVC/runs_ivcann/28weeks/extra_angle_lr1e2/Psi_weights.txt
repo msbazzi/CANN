@@ -1,0 +1,82 @@
+Ψ-Net weights (by invariant/feature)
+====================================
+
+Invariant reference shifts used inside model:
+  shift_I1 = 3.0
+  shift_I2 = 3.0
+  shift_I4 = 1.0
+  (learned) phi  = 45.000 deg
+
+Branch weights (pre-activation scalars):
+
+[I1]
+  lin      : -4.062074e-01
+  exp      : +6.736689e-02
+  quad_lin : -2.709963e-01
+  quad_exp : -0.000000e+00
+
+[I2]
+  lin      : +6.302562e-20
+  exp      : +8.284999e-01
+  quad_lin : +6.302564e-20
+  quad_exp : +3.712287e-02
+
+[I4θ]
+  lin      : +0.000000e+00
+  exp      : +7.522669e-02
+  quad_lin : +0.000000e+00
+  quad_exp : +5.338779e-02
+
+[I4z]
+  lin      : +0.000000e+00
+  exp      : +1.808419e-02
+  quad_lin : +0.000000e+00
+  quad_exp : +9.584454e-02
+
+[I4a]
+  lin      : +6.800488e-01
+  exp      : +7.482439e-01
+  quad_lin : +6.801853e-01
+  quad_exp : +8.097808e-01
+
+[I4b]
+  lin      : +6.811127e-01
+  exp      : +5.227425e-01
+  quad_lin : +6.764670e-01
+  quad_exp : +8.223679e-01
+
+[I8]
+  lin      : -1.089532e+00
+  exp      : -0.000000e+00
+  quad_lin : -1.053038e-01
+  quad_exp : +4.483345e-01
+
+Mixer weights (feature → Ψ):
+  I1_lin         -> +2.553012e+00
+  I1_exp         -> -0.000000e+00
+  I1_quad_lin    -> +1.601309e+00
+  I1_quad_exp    -> -0.000000e+00
+  I2_lin         -> +1.275147e-21
+  I2_exp         -> +5.527647e-01
+  I2_quad_lin    -> +1.275197e-21
+  I2_quad_exp    -> +2.133420e-03
+  I4theta_lin    -> -0.000000e+00
+  I4theta_exp    -> -0.000000e+00
+  I4theta_quad_lin -> +5.479926e-02
+  I4theta_quad_exp -> -0.000000e+00
+  I4z_lin        -> -0.000000e+00
+  I4z_exp        -> -0.000000e+00
+  I4z_quad_lin   -> -0.000000e+00
+  I4z_quad_exp   -> +5.028647e-02
+  I4a_lin        -> +7.492545e-01
+  I4a_exp        -> +5.524049e-02
+  I4a_quad_lin   -> +7.444373e-01
+  I4a_quad_exp   -> +5.224247e-01
+  I4b_lin        -> +7.318604e-01
+  I4b_exp        -> +6.377284e-01
+  I4b_quad_lin   -> +9.215947e-01
+  I4b_quad_exp   -> +5.204303e-01
+  I8_lin         -> +4.363529e-01
+  I8_exp         -> +4.987939e-02
+  I8_quad_lin    -> +4.337526e-02
+  I8_quad_exp    -> +4.365788e-01

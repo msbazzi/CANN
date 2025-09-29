@@ -1,0 +1,78 @@
+Model: "Psi"
+________________________________________________________________________________
+ Layer (type)             Output Shape      Param #  Connected to               
+================================================================================
+ I1 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ I2 (InputLayer)          [(None, 1)]       0        []                         
+                                                                                
+ lambda (Lambda)          (None, 1)         0        ['I1[0][0]']               
+                                                                                
+ lambda_1 (Lambda)        (None, 1)         0        ['I2[0][0]']               
+                                                                                
+ tf.math.square (TFOpLamb  (None, 1)        0        ['lambda[0][0]']           
+ da)                                                                            
+                                                                                
+ tf.math.square_1 (TFOpLa  (None, 1)        0        ['lambda[0][0]']           
+ mbda)                                                                          
+                                                                                
+ tf.math.square_2 (TFOpLa  (None, 1)        0        ['lambda[0][0]']           
+ mbda)                                                                          
+                                                                                
+ tf.math.square_3 (TFOpLa  (None, 1)        0        ['lambda_1[0][0]']         
+ mbda)                                                                          
+                                                                                
+ tf.math.square_4 (TFOpLa  (None, 1)        0        ['lambda_1[0][0]']         
+ mbda)                                                                          
+                                                                                
+ tf.math.square_5 (TFOpLa  (None, 1)        0        ['lambda_1[0][0]']         
+ mbda)                                                                          
+                                                                                
+ w11 (Dense)              (None, 1)         1        ['lambda[0][0]']           
+                                                                                
+ w21 (Dense)              (None, 1)         1        ['lambda[0][0]']           
+                                                                                
+ w31 (Dense)              (None, 1)         1        ['lambda[0][0]']           
+                                                                                
+ w41 (Dense)              (None, 1)         1        ['tf.math.square[0][0]']   
+                                                                                
+ w51 (Dense)              (None, 1)         1        ['tf.math.square_1[0][0]'] 
+                                                                                
+ w61 (Dense)              (None, 1)         1        ['tf.math.square_2[0][0]'] 
+                                                                                
+ w71 (Dense)              (None, 1)         1        ['lambda_1[0][0]']         
+                                                                                
+ w81 (Dense)              (None, 1)         1        ['lambda_1[0][0]']         
+                                                                                
+ w91 (Dense)              (None, 1)         1        ['lambda_1[0][0]']         
+                                                                                
+ w101 (Dense)             (None, 1)         1        ['tf.math.square_3[0][0]'] 
+                                                                                
+ w111 (Dense)             (None, 1)         1        ['tf.math.square_4[0][0]'] 
+                                                                                
+ w121 (Dense)             (None, 1)         1        ['tf.math.square_5[0][0]'] 
+                                                                                
+ concatenate (Concatenate  (None, 6)        0        ['w11[0][0]',              
+ )                                                    'w21[0][0]',              
+                                                      'w31[0][0]',              
+                                                      'w41[0][0]',              
+                                                      'w51[0][0]',              
+                                                      'w61[0][0]']              
+                                                                                
+ concatenate_1 (Concatena  (None, 6)        0        ['w71[0][0]',              
+ te)                                                  'w81[0][0]',              
+                                                      'w91[0][0]',              
+                                                      'w101[0][0]',             
+                                                      'w111[0][0]',             
+                                                      'w121[0][0]']             
+                                                                                
+ concatenate_2 (Concatena  (None, 12)       0        ['concatenate[0][0]',      
+ te)                                                  'concatenate_1[0][0]']    
+                                                                                
+ wx2 (Dense)              (None, 1)         12       ['concatenate_2[0][0]']    
+                                                                                
+================================================================================
+Total params: 24
+Trainable params: 24
+Non-trainable params: 0
+________________________________________________________________________________

@@ -1,7 +1,8 @@
 from plotting_tools import *
 from viscRNN import *
 from muscle_data import *
-from tensorflow.python.framework.ops import disable_eager_execution
+import tensorflow as tf  # << use TF public API only
+
 
 if __name__ == '__main__':
     savePath = 'Results/'
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     plotPred(model, inputAll, outputAll, savePath, trialName + '_inv')
 
     # example of training principal stretch-based model
-    disable_eager_execution()  # use this command for the principal stretch-based model only
+    tf.compat.v1.disable_eager_execution()
 
     model = build_pStr(num_pStr_Units, numHistoryVars)
 
